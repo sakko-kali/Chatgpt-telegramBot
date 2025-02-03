@@ -68,6 +68,17 @@ async def clear_memory_handler(message: Message) -> None:
         await message.answer("Ваша память уже пуста!", reply_markup=menu_keyboard)
 
 
+@dp.message(lambda message: message.text == "Очистить память бота")
+async def clear_memory_button_handler(message: Message) -> None:
+    """Обработка нажатия кнопки для очистки памяти."""
+    user_id = message.from_user.id
+    if user_id in user_memory:
+        user_memory.pop(user_id)  # Очищаем память пользователя
+        await message.answer("Память успешно очищена! 🧹", reply_markup=menu_keyboard)
+    else:
+        await message.answer("Ваша память уже пуста!", reply_markup=menu_keyboard)
+
+
 @dp.message()
 async def echo_handler(message: Message) -> None:
     try:
