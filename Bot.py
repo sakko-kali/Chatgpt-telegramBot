@@ -5,7 +5,7 @@ import sys
 
 from aiogram import Bot, Dispatcher, html
 from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
+from aiogram.enums import ParseMode, ChatAction
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from main_ai import main_mistral
@@ -87,6 +87,10 @@ async def echo_handler(message: Message) -> None:
 
         # Добавить сообщение пользователя в память
         add_message_to_memory(user_id, "user", content)
+
+        # Уведомить, что бот "печатает"
+        bot = message.bot
+        await bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
 
         # Передать всю историю сообщений в AI
         res = await main_mistral(user_memory[user_id])
