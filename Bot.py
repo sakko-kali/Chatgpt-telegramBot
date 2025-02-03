@@ -6,15 +6,19 @@ import sys
 from aiogram import Bot, Dispatcher, html
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiogram.filters import Command, CommandStart
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from main_ai import main_mistral
 from settings import BOT_KEY, ADMIN_ID
+
+# Проверка корректности токена
+if not BOT_KEY or BOT_KEY.isspace():
+    raise ValueError("Bot token (BOT_KEY) не задан или некорректный!")
 
 TOKEN = BOT_KEY
 
 # Ограничения на количество сообщений для разных пользователей
-OWNER_ID = ADMIN_ID  # Замените на ваш Telegram ID
+OWNER_ID = ADMIN_ID  # Telegram ID администратора
 MEMORY_LIMIT_OWNER = 150
 MEMORY_LIMIT_OTHERS = 25
 
@@ -22,6 +26,14 @@ MEMORY_LIMIT_OTHERS = 25
 user_memory = defaultdict(list)
 
 dp = Dispatcher()
+
+# Создаем клавиатуру для кнопок
+menu_keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="Очистить память бота")],  # Кнопка для очистки памяти
+    ],
+    resize_keyboard=True  # Чтобы клавиатура подстраивалась под экран
+)
 
 
 # Функция для добавления сообщений в память
@@ -36,9 +48,24 @@ def add_message_to_memory(user_id, role, content):
 
 @dp.message(CommandStart())
 async def command_start_handler(message: Message) -> None:
-    await message.answer(f"Hello, {html.bold(message.from_user.full_name)}!")
+    await message.answer(
+        f"Привет, {html.bold(message.from_user.full_name)}! "
+        "Я бот ChatGPT, готов ответить на ваши вопросы.",
+        reply_markup=menu_keyboard  # Отправляем клавиатуру при старте
+    )
     # Обновить память (начало нового диалога)
     user_memory[message.from_user.id] = []  # Очистка контекста
+
+
+@dp.message(Command(commands=["clear"]))
+async def clear_memory_handler(message: Message) -> None:
+    """Команда /clear для очистки памяти пользователя."""
+    user_id = message.from_user.id
+    if user_id in user_memory:
+        user_memory.pop(user_id)  # Удаляем данные из памяти
+        await message.answer("Ваша память успешно очищена! 🧹", reply_markup=menu_keyboard)
+    else:
+        await message.answer("Ваша память уже пуста!", reply_markup=menu_keyboard)
 
 
 @dp.message()
@@ -57,17 +84,26 @@ async def echo_handler(message: Message) -> None:
         add_message_to_memory(user_id, "assistant", res)
 
         # Ответить пользователю
-        await message.answer(res)
+        await message.answer(res, reply_markup=menu_keyboard)
 
-    except TypeError:
-        await message.answer("Nice try!")
+    except KeyError:
+        logging.error("KeyError: user_memory не содержит данных для пользователя.")
+        await message.answer("К сожалению, произошла ошибка. Попробуйте снова.", reply_markup=menu_keyboard)
+
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+        await message.answer("Произошла ошибка при обработке сообщения.", reply_markup=menu_keyboard)
 
 
 async def main() -> None:
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+    # Настройка логирования для удобного отладки
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    logging.info("Бот запущен...")
+
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     asyncio.run(main())
