@@ -6,6 +6,7 @@ from settings import APIKEY
 async def main_mistral(content):
     mistral = Mistral(api_key=APIKEY.strip())
 
+
     try:
         res = await mistral.chat.complete_async(
             model="mistral-small-latest",
